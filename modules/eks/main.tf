@@ -14,22 +14,8 @@ data "aws_eks_cluster_auth" "cluster" {
   name = module.eks.cluster_name
 }
 
-# KMS key for EKS cluster encryption
-resource "aws_kms_key" "eks" {
-  description             = "EKS Secret Encryption Key"
-  deletion_window_in_days = 7
-  enable_key_rotation     = true
-
-  tags = {
-    Name        = "${var.cluster_name}-eks-encryption-key"
-    Environment = var.env
-  }
-}
-
-resource "aws_kms_alias" "eks" {
-  name          = "alias/${var.cluster_name}-eks-encryption-key"
-  target_key_id = aws_kms_key.eks.key_id
-}
+# Note: KMS encryption removed for initial deployment to avoid hanging issues
+# Can be added back after successful cluster creation
 
 # Security group for SSH access to EKS worker nodes
 resource "aws_security_group" "eks_node_ssh" {
@@ -82,24 +68,33 @@ module "eks" {
   subnet_ids                           = var.subnet_ids
   cluster_endpoint_public_access       = var.cluster_endpoint_public_access
   cluster_endpoint_private_access      = var.cluster_endpoint_private_access
-  cluster_endpoint_public_access_cidrs = [var.my_ip]  # Restrict to your IP for security
+  cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"]  # Allow from anywhere for initial setup
 
-  # Encryption config
-  cluster_encryption_config = {
-    provider_key_arn = aws_kms_key.eks.arn
-    resources        = ["secrets"]
-  }
+  # Simplified encryption config to avoid KMS dependency issues
+  cluster_encryption_config = {}
 
-  # Cluster logging
-  cluster_enabled_log_types              = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+  # Minimal cluster logging to reduce complexity
+  cluster_enabled_log_types              = ["api", "audit"]
   cloudwatch_log_group_retention_in_days = 7
 
-  # Cluster addons
-  cluster_addons = var.cluster_addons
+  # Simplified cluster addons
+  cluster_addons = {
+    coredns = {
+      most_recent = true
+    }
+    kube-proxy = {
+      most_recent = true
+    }
+    vpc-cni = {
+      most_recent = true
+    }
+  }
 
-  # EKS Managed Node Group(s)
+  # EKS Managed Node Group(s) - Simplified
   eks_managed_node_group_defaults = {
     instance_types = var.node_instance_types
+    ami_type       = "AL2_x86_64"
+    disk_size      = 20
   }
 
   eks_managed_node_groups = {
@@ -114,11 +109,9 @@ module "eks" {
 
       capacity_type = "ON_DEMAND"
 
-      # Remove remote access to avoid launch template conflicts
-      # Use AWS Systems Manager (SSM) for secure access instead
-
+      # Simplified update config
       update_config = {
-        max_unavailable_percentage = 33
+        max_unavailable_percentage = 25
       }
 
       labels = {
@@ -126,54 +119,21 @@ module "eks" {
         NodeGroup   = "main"
       }
 
-      taints = var.node_group_taints
-
       tags = {
         ExtraTag = "EKS managed node group"
       }
     }
   }
 
-  # Fargate Profile(s)
-  fargate_profiles = var.enable_fargate ? {
-    default = {
-      name = "${var.cluster_name}-fargate-profile"
-      selectors = [
-        {
-          namespace = "fargate"
-        },
-        {
-          namespace = "kube-system"
-          labels = {
-            k8s-app = "kube-dns"
-          }
-        }
-      ]
+  # Remove Fargate to simplify initial deployment
+  fargate_profiles = {}
 
-      tags = {
-        Owner = "fargate"
-      }
-
-      timeouts = {
-        create = "20m"
-        delete = "20m"
-      }
-    }
-  } : {}
-
-  # aws-auth configmap
+  # Simplified aws-auth configmap
   manage_aws_auth_configmap = true
 
-  aws_auth_roles = [
-    {
-      rolearn  = module.eks_admins_iam_role.iam_role_arn
-      username = "cluster-admin"
-      groups   = ["system:masters"]
-    },
-  ]
-
-  aws_auth_users    = var.map_users
-  aws_auth_accounts = var.map_accounts
+  aws_auth_roles = []  # Simplify initially
+  aws_auth_users = []
+  aws_auth_accounts = []
 
   tags = {
     Environment = var.env
@@ -182,85 +142,5 @@ module "eks" {
   }
 }
 
-# Additional IAM role for EKS admins
-module "eks_admins_iam_role" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.39"  # Compatible version with EKS v19
-
-  role_name = "${var.cluster_name}-admin"  # Shortened role name
-
-  oidc_providers = {
-    ex = {
-      provider_arn               = module.eks.oidc_provider_arn
-      namespace_service_accounts = ["kube-system:aws-node", "kube-system:ebs-csi-controller-sa"]
-    }
-  }
-
-  tags = {
-    Environment = var.env
-  }
-}
-
-# AWS Load Balancer Controller IAM role
-module "aws_load_balancer_controller_irsa_role" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.39"
-
-  role_name = "${var.cluster_name}-alb"  # Shortened role name
-
-  attach_load_balancer_controller_policy = true
-
-  oidc_providers = {
-    ex = {
-      provider_arn               = module.eks.oidc_provider_arn
-      namespace_service_accounts = ["kube-system:aws-load-balancer-controller"]
-    }
-  }
-
-  tags = {
-    Environment = var.env
-  }
-}
-
-# EBS CSI Driver IAM role
-module "ebs_csi_irsa_role" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.39"
-
-  role_name = "${var.cluster_name}-ebs"  # Shortened role name
-
-  attach_ebs_csi_policy = true
-
-  oidc_providers = {
-    ex = {
-      provider_arn               = module.eks.oidc_provider_arn
-      namespace_service_accounts = ["kube-system:ebs-csi-controller-sa"]
-    }
-  }
-
-  tags = {
-    Environment = var.env
-  }
-}
-
-# VPC CNI IAM role
-module "vpc_cni_irsa_role" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.39"
-
-  role_name = "${var.cluster_name}-vpc-cni"
-
-  attach_vpc_cni_policy = true
-  vpc_cni_enable_ipv4   = true
-
-  oidc_providers = {
-    ex = {
-      provider_arn               = module.eks.oidc_provider_arn
-      namespace_service_accounts = ["kube-system:aws-node"]
-    }
-  }
-
-  tags = {
-    Environment = var.env
-  }
-}
+# Simplified IAM role for EKS cluster access (remove complex dependencies)
+# Note: Complex IAM roles moved to separate deployment for better reliability

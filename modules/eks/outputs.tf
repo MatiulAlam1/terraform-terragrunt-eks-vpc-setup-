@@ -98,15 +98,7 @@ output "aws_auth_configmap_yaml" {
   value       = module.eks.aws_auth_configmap_yaml
 }
 
-output "kms_key_arn" {
-  description = "The Amazon Resource Name (ARN) of the key"
-  value       = aws_kms_key.eks.arn
-}
-
-output "kms_key_id" {
-  description = "The globally unique identifier for the key"
-  value       = aws_kms_key.eks.key_id
-}
+# Note: KMS outputs removed due to simplified configuration
 
 output "cloudwatch_log_group_name" {
   description = "Name of cloudwatch log group created"
@@ -118,23 +110,5 @@ output "cloudwatch_log_group_arn" {
   value       = module.eks.cloudwatch_log_group_arn
 }
 
-# IAM roles outputs
-output "eks_admins_iam_role_arn" {
-  description = "ARN of IAM role for EKS admins"
-  value       = module.eks_admins_iam_role.iam_role_arn
-}
-
-output "aws_load_balancer_controller_role_arn" {
-  description = "ARN of IAM role for AWS Load Balancer Controller"
-  value       = module.aws_load_balancer_controller_irsa_role.iam_role_arn
-}
-
-output "ebs_csi_role_arn" {
-  description = "ARN of IAM role for EBS CSI driver"
-  value       = module.ebs_csi_irsa_role.iam_role_arn
-}
-
-output "vpc_cni_role_arn" {
-  description = "ARN of IAM role for VPC CNI"
-  value       = module.vpc_cni_irsa_role.iam_role_arn
-}
+# Note: Complex IAM role outputs removed due to simplified configuration
+# These can be added back after successful cluster creation

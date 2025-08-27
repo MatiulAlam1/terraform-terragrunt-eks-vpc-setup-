@@ -27,7 +27,7 @@ variable "subnet_ids" {
 variable "node_instance_types" {
   description = "Set of instance types associated with the EKS Node Group"
   type        = list(string)
-  default     = ["t3.medium"]
+  default     = ["t3.small"]  # Changed from t3.medium to t3.small for cost optimization
 }
 
 variable "node_group_min_size" {

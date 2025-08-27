@@ -25,7 +25,7 @@ inputs = {
   # EKS configuration (set to true to enable EKS)
   enable_eks                    = true   # Enabled EKS deployment
   eks_cluster_version          = "1.28"
-  eks_node_instance_types      = ["t2.micro"]  # Using t2.micro for cost-effective dev environment
+  eks_node_instance_types      = ["t3.small"]  # Changed from t2.micro to t3.small (minimum for EKS)
   eks_node_group_min_size      = 1
   eks_node_group_max_size      = 3
   eks_node_group_desired_size  = 1
