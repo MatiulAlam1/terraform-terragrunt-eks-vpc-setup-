@@ -1,7 +1,32 @@
 # Terraform Terragrunt EKS VPC Setup
 
-This repository provides infrastructure as code (IaC) templates to deploy an **Amazon EKS (Elastic Kubernetes Service)** cluster with a **VPC (Virtual Private Cloud)** using **Terraform** and **Terragrunt**.
+Overview
 
+This project provides a reusable and configurable setup to provision a Virtual Private Cloud (VPC) on AWS, specifically designed to meet the requirements for hosting an Amazon EKS (Elastic Kubernetes Service) cluster. It uses Terraform for infrastructure as code and Terragrunt to keep the configuration DRY (Don't Repeat Yourself) and manage remote state.
+
+The resulting VPC includes:
+
+
+
+
+
+Public and private subnets across multiple Availability Zones.
+
+
+
+An Internet Gateway (IGW) for public internet access.
+
+
+
+NAT Gateways in public subnets to allow private subnets to access the internet.
+
+
+
+Appropriate route tables for public and private subnets.
+
+
+
+Necessary tags on all resources, especially those required by EKS for auto-discovery (e.g., kubernetes.io/cluster/<cluster-name>).
 ---
 
 ## 📂 Project Structure
